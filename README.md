@@ -2,12 +2,16 @@
 Linux LS
 
 ## Config
-
-The JSON config format is
-```json
-{
-  "filetype": {
-    "color": "color"
+soon:tm:
+Example config:
+```json{
+  "dir": {
+    "color": "blue",
+    "bold": true
+  }
+  "file": {
+    "color": "white",
+    "bold": false
   }
 }
 
