@@ -7,7 +7,7 @@ use clap::Parser;
 #[command(author, version, about, long_about=None)]
 struct Args {
     /// Directory to list
-    #[arg(short, default_value = ".")]
+    #[arg(default_value = ".")]
     path: String,
     /// Show / hide files starting with "."
     #[arg(short, default_value = "false")]
@@ -42,11 +42,9 @@ fn sort_dirs(items: ReadDir, sort: bool, all: bool) -> (Vec<String>, Vec<String>
     return (dirs, files);
 }
 
-
 fn main() {
 
     let args = Args::parse();
-
 
     let items: ReadDir = std::fs::read_dir(args.path).unwrap();
     
