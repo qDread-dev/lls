@@ -42,6 +42,26 @@ fn sort_dirs(items: ReadDir, sort: bool, all: bool) -> (Vec<String>, Vec<String>
     return (dirs, files);
 }
 
+fn print_vec(vec: Vec<String>, color: Color, bold: bool) {
+    let (width, _) = term_size::dimensions().unwrap();
+    let width = width -1;
+    let mut current_line_length = 0;
+    
+    for i in &vec {
+        let item_length = i.len() + 2;
+        if current_line_length + item_length > width {
+            println!();
+            current_line_length = 0;
+        }
+        if bold {
+            print!("{}  ", i.color(color).bold());
+        } else {
+            print!("{}  ", i.color(color));
+        }
+        current_line_length += item_length;
+    }
+}
+
 fn main() {
 
     let args = Args::parse();
@@ -49,30 +69,9 @@ fn main() {
     let items: ReadDir = std::fs::read_dir(args.path).unwrap();
     
     let (dirs, files) = sort_dirs(items, args.unordered, args.all);
-    let (width, _) = term_size::dimensions().unwrap();
-    let width = width -1;
-    let mut current_line_length = 0;
     
-    for i in &dirs {
-        let item_length = i.len() + 2;
-        if current_line_length + item_length > width {
-            println!();
-            current_line_length = 0;
-        }
-        print!("{}  ", i.blue().bold());
-        current_line_length += item_length;
-    }
+    print_vec(dirs, Color::Blue, true);
     println!();
-
-    current_line_length = 0;
-    for i in &files {
-        let item_length: usize = i.len() + 2;
-        if current_line_length + item_length > width {
-            println!();
-            current_line_length = 0;
-        }
-        print!("{}  ", i);
-        current_line_length += item_length;
-    }
+    print_vec(files, Color::White, false);
     println!();
 }
