@@ -48,7 +48,7 @@ fn main() {
     let args = Args::parse();
 
 
-    let items = std::fs::read_dir(args.path).unwrap();
+    let items: ReadDir = std::fs::read_dir(args.path).unwrap();
     
     let (dirs, files) = sort_dirs(items, args.unordered, args.all);
     let (width, _) = term_size::dimensions().unwrap();
@@ -56,7 +56,7 @@ fn main() {
     let mut current_line_length = 0;
     
     for i in &dirs {
-        let item_length = i.len() + 1;
+        let item_length = i.len() + 2;
         if current_line_length + item_length > width {
             println!();
             current_line_length = 0;
@@ -68,12 +68,12 @@ fn main() {
 
     current_line_length = 0;
     for i in &files {
-        let item_length = i.len() + 1;
+        let item_length: usize = i.len() + 2;
         if current_line_length + item_length > width {
             println!();
             current_line_length = 0;
         }
-        print!("{} ", i);
+        print!("{}  ", i);
         current_line_length += item_length;
     }
     println!();
