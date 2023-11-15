@@ -52,6 +52,7 @@ fn main() {
     
     let (dirs, files) = sort_dirs(items, args.unordered, args.all);
     let (width, _) = term_size::dimensions().unwrap();
+    let width = width -1;
     let mut current_line_length = 0;
     
     for i in &dirs {
@@ -63,8 +64,17 @@ fn main() {
         print!("{}  ", i.blue().bold());
         current_line_length += item_length;
     }
-    println!("");
+    println!();
+
+    current_line_length = 0;
     for i in &files {
-        print!("{}  ", i);
+        let item_length = i.len() + 1;
+        if current_line_length + item_length > width {
+            println!();
+            current_line_length = 0;
+        }
+        print!("{} ", i);
+        current_line_length += item_length;
     }
+    println!();
 }
