@@ -4,7 +4,8 @@ Linux LS
 ## Config
 soon:tm:
 Example config:
-```json{
+```json
+{
   "dir": {
     "color": "blue",
     "bold": true
