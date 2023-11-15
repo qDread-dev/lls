@@ -15,5 +15,4 @@ Example config:
     "bold": false
   }
 }
-
 ```
