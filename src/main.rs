@@ -41,8 +41,8 @@ struct PathMeta {
 fn apply_style(style: &JsonValue, text: String, readonly: bool) -> ColoredString {
     let mut output = text.color(conv_color(style["color"].as_str().unwrap().to_string()));
     if readonly {
-        output = output.color(conv_color(style["readonly_color"].as_str().unwrap().to_string()));
-        output = output.on_color(conv_color(style["readonly_background_color"].as_str().unwrap().to_string()));
+        output = output.color(conv_color(style["readonly_color"].as_str().unwrap_or("").to_string()));
+        output = output.on_color(conv_color(style["readonly_background_color"].as_str().unwrap_or("").to_string()));
     }
     if style["bold"].as_bool().unwrap_or(false) {
         output = output.bold();
@@ -130,7 +130,7 @@ fn print_vec(mut vec: Vec<PathBuf>, file_type: String) {
     let max_item_length = vec.iter()
         .map(|path| path.file_name().unwrap_or_else(|| path.as_os_str()).to_str().unwrap().len())
         .max()
-        .unwrap_or(0); // +2 for the spaces after each item
+        .unwrap_or(0)+2; // +2 for the spaces after each item
 
     let num_columns = width / max_item_length;
 
@@ -147,9 +147,10 @@ fn print_vec(mut vec: Vec<PathBuf>, file_type: String) {
         if i % num_columns == 0 && i != 0 {
             write!(output, "\n").unwrap();
         }
-    
-        let formatted_item = format!("{:width$}", styled_item, width = max_item_length);
-        write!(output, "{}", formatted_item).unwrap();
+        write!(output, "{}", styled_item).unwrap();
+        for _ in 0..(max_item_length - item.len()) {
+            write!(output, " ").unwrap();
+        }
     }
     writeln!(output).unwrap();
     print!("{}", output);
@@ -172,8 +173,13 @@ fn conv_color(color: String) -> Color {
         "bright_magenta" => Color::BrightMagenta,
         "bright_white" => Color::BrightWhite,
         "bright_black" => Color::BrightBlack,
-        _ => Color::TrueColor {r: color.split(",").nth(0).unwrap().parse::<u8>().unwrap(), g: color.split(",").nth(1).unwrap().parse::<u8>().unwrap(), b: color.split(",").nth(2).unwrap().parse::<u8>().unwrap()},
-    }
+        _ => {
+            let parts: Vec<&str> = color.split(",").collect();
+            let r = parts.get(0).and_then(|s| s.parse::<u8>().ok()).unwrap_or(0);
+            let g = parts.get(1).and_then(|s| s.parse::<u8>().ok()).unwrap_or(0);
+            let b = parts.get(2).and_then(|s| s.parse::<u8>().ok()).unwrap_or(0);
+            Color::TrueColor { r, g, b }
+        }    }
 }
 
 fn parse_config() -> json::JsonValue{
