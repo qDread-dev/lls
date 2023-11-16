@@ -31,9 +31,13 @@ struct Args {
     #[arg(long, default_value = "")]
     regex: String,
 }
-
-
-fn apply_style(style: &JsonValue, text: &str) -> ColoredString {
+#[derive(Clone)]
+struct PathMeta {
+    path: PathBuf,
+    metadata: fs::Metadata,
+}
+#[inline]
+fn apply_style(style: &JsonValue, text: String) -> ColoredString {
     let mut output = text.color(conv_color(style["color"].as_str().unwrap().to_string()));
     if style["bold"].as_bool().unwrap_or(false) {
         output = output.bold();
@@ -71,35 +75,33 @@ fn sort_dirs(items: ReadDir, args: Args) -> Result<(Vec<PathBuf>, Vec<PathBuf>),
 
     let mut paths: Vec<_> = items
         .filter_map(Result::ok)
-        .map(|entry| entry.path())
+        .map(|entry| {
+            let path = entry.path();
+            let metadata = fs::metadata(&path).unwrap();
+            PathMeta { path, metadata }
+        })
         .collect();
-
-    paths.sort_by(|a, b| {
-        let a_metadata = fs::metadata(&a).unwrap();
-        let b_metadata = fs::metadata(&b).unwrap();
-
-        let a_file_type = determine_file_type(&a, &a_metadata);
-        let b_file_type = determine_file_type(&b, &b_metadata);
+    paths.par_sort_by(|a, b| {
+        let a_file_type = determine_file_type(&a.path, &a.metadata);
+        let b_file_type = determine_file_type(&b.path, &b.metadata);
 
         a_file_type.cmp(&b_file_type)
     });
 
     let (dirs, files): (Vec<_>, Vec<_>) = paths
-        .iter()
-        .filter(|path| {
+        .par_iter()
+        .filter(|path_meta| {
             // Include hidden files/directories if args.all is true
-            args.all || path.file_name()
+            args.all || path_meta.path.file_name()
                 .and_then(|name| name.to_str())
                 .map(|name| !name.starts_with('.'))
                 .unwrap_or(false)
         })
-        .partition(|path| {
-            path.is_dir() && path.to_str().map_or(false, |s| regex.is_match(s))
+        .partition(|path_meta| {
+            path_meta.path.is_dir() && path_meta.path.to_str().map_or(false, |s| regex.is_match(s))
         });
-
-    let dirs: Vec<PathBuf> = dirs.into_iter().cloned().collect();
-    let files: Vec<PathBuf> = files.into_iter().cloned().collect();
-
+        let dirs: Vec<PathBuf> = dirs.into_iter().map(|path_meta| path_meta.path.clone()).collect();
+        let files: Vec<PathBuf> = files.into_iter().map(|path_meta| path_meta.path.clone()).collect();
     Ok((dirs, files))
 }
 
@@ -138,7 +140,7 @@ fn print_vec(mut vec: Vec<PathBuf>, file_type: String) {
             write!(output, "\n").unwrap();
         }
 
-        let formatted_item = format!("{:width$}", apply_style(&json, item), width = max_item_length);
+        let formatted_item = format!("{:width$}", apply_style(&json, item.to_string()), width = max_item_length);
         write!(output, "{}", formatted_item).unwrap();
     }
     writeln!(output).unwrap();
