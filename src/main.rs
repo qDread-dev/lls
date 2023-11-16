@@ -139,15 +139,13 @@ fn parse_config() -> json::JsonValue{
 fn recursive_read(dir: &Path) -> std::io::Result<Vec<String>> {
     let mut files = Vec::new();
 
-    if dir.is_dir() {
-        for entry in fs::read_dir(dir)? {
-            let entry = entry?;
-            let path = entry.path();
-            if path.is_dir() {
-                files.extend(recursive_read(&path)?);
-            } else {
-                files.push(String::from(path.to_str().unwrap()));
-            }
+    for entry in fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() {
+            files.extend(recursive_read(&path)?);
+        } else {
+            files.push(String::from(path.to_str().unwrap()));
         }
     }
 
