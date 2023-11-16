@@ -7,6 +7,7 @@ use clap::Parser;
 use json::JsonValue;
 use std::fs;
 use std::path::Path;
+use regex::Regex;
 
 #[derive(Parser, Default, Debug)]
 #[command(author, version, about, long_about=None)]
@@ -23,6 +24,9 @@ struct Args {
     /// Show files in sub directories
     #[arg(short, default_value = "false")]
     recursive: bool,
+    /// Regex to match files
+    #[arg(long, default_value = "*")]
+    regex: String,
 }
 
 fn apply_style(style: &JsonValue, text: &str) -> ColoredString {
@@ -62,12 +66,16 @@ fn apply_style(style: &JsonValue, text: &str) -> ColoredString {
 fn sort_dirs(items: ReadDir, args: Args) -> (Vec<String>, Vec<String>) {
     let mut dirs: Vec<String> = Vec::new();
     let mut files: Vec<String> = Vec::new();
+    let regex = args.regex.parse::<Regex>().unwrap();
     for i in items {
         // check if item is a directory or file
         let item = i.unwrap();
         let path = item.path();
 
-
+        // regex go brr
+        if !regex.is_match(path.to_str().unwrap()){
+            continue;
+        }
         // check if file is hidden
         if (path.file_name().unwrap().to_str().unwrap().starts_with(".")) && !args.all {
             continue;
@@ -136,15 +144,19 @@ fn parse_config() -> json::JsonValue{
     return json;
 }
 
-fn recursive_read(dir: &Path) -> std::io::Result<Vec<String>> {
+fn recursive_read(dir: &Path, regex: Regex) -> std::io::Result<Vec<String>> {
     let mut files = Vec::new();
 
     for entry in fs::read_dir(dir)? {
         let entry = entry?;
         let path = entry.path();
         if path.is_dir() {
-            files.extend(recursive_read(&path)?);
+            let regex_clone = regex.clone();
+            files.extend(recursive_read(&path, regex_clone)?);
         } else {
+            if !regex.is_match(path.to_str().unwrap()) {
+                continue;
+            }
             files.push(String::from(path.to_str().unwrap()));
         }
     }
@@ -162,7 +174,7 @@ fn main() {
         println!();
         print_vec(files, "file".to_string());
     } else {
-        match recursive_read(Path::new(&args.path)) {
+        match recursive_read(Path::new(&args.path), args.regex.parse::<Regex>().unwrap()) {
             Ok(files) => {
                 for file in files {
                     println!("{}", file);
