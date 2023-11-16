@@ -88,7 +88,10 @@ fn conv_color(color: String) -> Color {
 }
 
 fn parse_config() -> json::JsonValue{
-    let mut file = File::open("config.json").unwrap();
+    let exe_path = std::env::current_exe().unwrap();
+    let exe_dir = exe_path.parent().unwrap();
+    let config_path = exe_dir.join("config.json");
+    let mut file = File::open(config_path).unwrap();
     let mut contents = String::new();
     file.read_to_string(&mut contents).unwrap();
 
@@ -97,14 +100,13 @@ fn parse_config() -> json::JsonValue{
 }
 
 fn main() {
+    
     let config: json::JsonValue = parse_config();
     let args = Args::parse();
     let items: ReadDir = std::fs::read_dir(args.path).unwrap();
-    
     let (dirs, files) = sort_dirs(items, args.unordered, args.all);
     
     print_vec(dirs, conv_color(config["dir"]["color"].to_string()), config["dir"]["bold"].as_bool().unwrap());
     println!();
     print_vec(files, Color::White, false);
-    println!();
 }
