@@ -38,7 +38,3 @@ Example config:
     }
 }
 ```
-
-## TODO
-
-Add all other styles for configs
