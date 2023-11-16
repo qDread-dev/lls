@@ -5,6 +5,8 @@ use term_size;
 use colored::*;
 use clap::Parser;
 use json::JsonValue;
+use std::fs;
+use std::path::Path;
 
 #[derive(Parser, Default, Debug)]
 #[command(author, version, about, long_about=None)]
@@ -18,6 +20,9 @@ struct Args {
     /// Don't sort directories and files
     #[arg(short, default_value = "false")]
     unordered: bool,
+    /// Show files in sub directories
+    #[arg(short, default_value = "false")]
+    recursive: bool,
 }
 
 fn apply_style(style: &JsonValue, text: &str) -> ColoredString {
@@ -54,15 +59,17 @@ fn apply_style(style: &JsonValue, text: &str) -> ColoredString {
     output
 }
 
-fn sort_dirs(items: ReadDir, sort: bool, all: bool) -> (Vec<String>, Vec<String>) {
+fn sort_dirs(items: ReadDir, args: Args) -> (Vec<String>, Vec<String>) {
     let mut dirs: Vec<String> = Vec::new();
     let mut files: Vec<String> = Vec::new();
     for i in items {
         // check if item is a directory or file
         let item = i.unwrap();
         let path = item.path();
+
+
         // check if file is hidden
-        if (path.file_name().unwrap().to_str().unwrap().starts_with(".")) && !all {
+        if (path.file_name().unwrap().to_str().unwrap().starts_with(".")) && !args.all {
             continue;
         }
         if path.is_dir() {
@@ -70,7 +77,7 @@ fn sort_dirs(items: ReadDir, sort: bool, all: bool) -> (Vec<String>, Vec<String>
         } else {
             files.push(item.file_name().into_string().unwrap());
         }
-        if sort {
+        if args.unordered {
             return (dirs, files);
         }
         dirs.sort();
@@ -129,14 +136,41 @@ fn parse_config() -> json::JsonValue{
     return json;
 }
 
+fn recursive_read(dir: &Path) -> std::io::Result<Vec<String>> {
+    let mut files = Vec::new();
+
+    if dir.is_dir() {
+        for entry in fs::read_dir(dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_dir() {
+                files.extend(recursive_read(&path)?);
+            } else {
+                files.push(String::from(path.to_str().unwrap()));
+            }
+        }
+    }
+
+    Ok(files)
+}
+
 fn main() {
-    
     let args = Args::parse();
-    let items: ReadDir = std::fs::read_dir(args.path).unwrap();
-    let (dirs, files) = sort_dirs(items, args.unordered, args.all);
-    
-    print_vec(dirs, "dir".to_string());
-    println!();
-    print_vec(files, "file".to_string());
-    // println!(":a".color(Style::));
+    if !args.recursive {
+        let items: ReadDir = std::fs::read_dir(&args.path).unwrap();
+        let (dirs, files) = sort_dirs(items, args);
+        
+        print_vec(dirs, "dir".to_string());
+        println!();
+        print_vec(files, "file".to_string());
+    } else {
+        match recursive_read(Path::new(&args.path)) {
+            Ok(files) => {
+                for file in files {
+                    println!("{}", file);
+                }
+            }
+            Err(e) => println!("Error: {}", e),
+        }
+    }
 }
