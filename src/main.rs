@@ -9,6 +9,7 @@ use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
 use regex::Regex;
+use rayon::prelude::*;
 
 #[derive(Parser, Default, Debug)]
 #[command(author, version, about, long_about=None)]
@@ -66,9 +67,13 @@ fn apply_style(style: &JsonValue, text: &str) -> ColoredString {
 fn sort_dirs(items: ReadDir, args: Args) -> Result<(Vec<PathBuf>, Vec<PathBuf>), regex::Error> {
     let regex = Regex::new(&args.regex)?;
 
-    let (dirs, files): (Vec<_>, Vec<_>) = items
+    let paths: Vec<_> = items
         .filter_map(Result::ok)
         .map(|entry| entry.path())
+        .collect();
+
+    let (dirs, files): (Vec<_>, Vec<_>) = paths
+        .par_iter()
         .filter(|path| {
             // Include hidden files/directories if args.all is true
             args.all || path.file_name()
@@ -76,7 +81,12 @@ fn sort_dirs(items: ReadDir, args: Args) -> Result<(Vec<PathBuf>, Vec<PathBuf>),
                 .map(|name| !name.starts_with('.'))
                 .unwrap_or(false)
         })
-        .partition(|path| path.is_dir() && regex.is_match(path.to_str().unwrap()));
+        .partition(|path| {
+            path.is_dir() && path.to_str().map_or(false, |s| regex.is_match(s))
+        });
+
+    let dirs: Vec<PathBuf> = dirs.into_iter().cloned().collect();
+    let files: Vec<PathBuf> = files.into_iter().cloned().collect();
 
     Ok((dirs, files))
 }
