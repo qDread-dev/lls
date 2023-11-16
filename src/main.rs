@@ -25,7 +25,7 @@ struct Args {
     #[arg(short, default_value = "false")]
     recursive: bool,
     /// Regex to match files
-    #[arg(long, default_value = "*")]
+    #[arg(long, default_value = "")]
     regex: String,
 }
 
@@ -85,12 +85,13 @@ fn sort_dirs(items: ReadDir, args: Args) -> (Vec<String>, Vec<String>) {
         } else {
             files.push(item.file_name().into_string().unwrap());
         }
-        if args.unordered {
-            return (dirs, files);
-        }
-        dirs.sort();
-        files.sort();
+        
     }
+    if args.unordered {
+        return (dirs, files);
+    }
+    dirs.sort();
+    files.sort();
     return (dirs, files);
 }
 
