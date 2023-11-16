@@ -7,6 +7,7 @@ use clap::Parser;
 use json::JsonValue;
 use std::fs;
 use std::path::Path;
+use std::path::PathBuf;
 use regex::Regex;
 
 #[derive(Parser, Default, Debug)]
@@ -31,7 +32,6 @@ struct Args {
 
 fn apply_style(style: &JsonValue, text: &str) -> ColoredString {
     let mut output = text.color(conv_color(style["color"].as_str().unwrap().to_string()));
-
     if style["bold"].as_bool().unwrap_or(false) {
         output = output.bold();
     }
@@ -63,44 +63,31 @@ fn apply_style(style: &JsonValue, text: &str) -> ColoredString {
     output
 }
 
-fn sort_dirs(items: ReadDir, args: Args) -> (Vec<String>, Vec<String>) {
-    let mut dirs: Vec<String> = Vec::new();
-    let mut files: Vec<String> = Vec::new();
-    let regex = args.regex.parse::<Regex>().unwrap();
-    for i in items {
-        // check if item is a directory or file
-        let item = i.unwrap();
-        let path = item.path();
+fn sort_dirs(items: ReadDir, args: Args) -> Result<(Vec<PathBuf>, Vec<PathBuf>), regex::Error> {
+    let regex = Regex::new(&args.regex)?;
 
-        // regex go brr
-        if !regex.is_match(path.to_str().unwrap()){
-            continue;
-        }
-        // check if file is hidden
-        if (path.file_name().unwrap().to_str().unwrap().starts_with(".")) && !args.all {
-            continue;
-        }
-        if path.is_dir() {
-            dirs.push(item.file_name().into_string().unwrap());
-        } else {
-            files.push(item.file_name().into_string().unwrap());
-        }
-        
-    }
-    if args.unordered {
-        return (dirs, files);
-    }
-    dirs.sort();
-    files.sort();
-    return (dirs, files);
+    let (dirs, files): (Vec<_>, Vec<_>) = items
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|path| {
+            // Include hidden files/directories if args.all is true
+            args.all || path.file_name()
+                .and_then(|name| name.to_str())
+                .map(|name| !name.starts_with('.'))
+                .unwrap_or(false)
+        })
+        .partition(|path| path.is_dir() && regex.is_match(path.to_str().unwrap()));
+
+    Ok((dirs, files))
 }
 
-fn print_vec(vec: Vec<String>, file_type: String) {
+fn print_vec(vec: Vec<PathBuf>, file_type: String) {
     let (width, _) = term_size::dimensions().unwrap();
     let width = width -1;
     let mut current_line_length = 0;
     let json: json::JsonValue = parse_config()[file_type].clone();
-    for i in &vec {
+    for path in &vec {
+        let i = path.strip_prefix("./").unwrap().to_str().unwrap();
         let item_length = i.len() + 2;
         if current_line_length + item_length > width {
             println!();
@@ -161,7 +148,6 @@ fn recursive_read(dir: &Path, regex: Regex) -> std::io::Result<Vec<String>> {
             files.push(String::from(path.to_str().unwrap()));
         }
     }
-
     Ok(files)
 }
 
@@ -169,8 +155,10 @@ fn main() {
     let args = Args::parse();
     if !args.recursive {
         let items: ReadDir = std::fs::read_dir(&args.path).unwrap();
-        let (dirs, files) = sort_dirs(items, args);
-        
+        let (dirs, files) = match sort_dirs(items, args) {
+            Ok((dirs, files)) => (dirs, files),
+            Err(e) => panic!("Error: {}", e),
+        };
         print_vec(dirs, "dir".to_string());
         println!();
         print_vec(files, "file".to_string());
