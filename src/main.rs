@@ -11,6 +11,7 @@ use std::path::PathBuf;
 use regex::Regex;
 use rayon::prelude::*;
 use std::fmt::Write;
+use std::fs::metadata;
 
 #[derive(Parser, Default, Debug)]
 #[command(author, version, about, long_about=None)]
@@ -37,8 +38,12 @@ struct PathMeta {
     metadata: fs::Metadata,
 }
 #[inline]
-fn apply_style(style: &JsonValue, text: String) -> ColoredString {
+fn apply_style(style: &JsonValue, text: String, readonly: bool) -> ColoredString {
     let mut output = text.color(conv_color(style["color"].as_str().unwrap().to_string()));
+    if readonly {
+        output = output.color(conv_color(style["readonly_color"].as_str().unwrap().to_string()));
+        output = output.on_color(conv_color(style["readonly_background_color"].as_str().unwrap().to_string()));
+    }
     if style["bold"].as_bool().unwrap_or(false) {
         output = output.bold();
     }
@@ -125,7 +130,7 @@ fn print_vec(mut vec: Vec<PathBuf>, file_type: String) {
     let max_item_length = vec.iter()
         .map(|path| path.file_name().unwrap_or_else(|| path.as_os_str()).to_str().unwrap().len())
         .max()
-        .unwrap_or(0) + 2; // +2 for the spaces after each item
+        .unwrap_or(0); // +2 for the spaces after each item
 
     let num_columns = width / max_item_length;
 
@@ -135,12 +140,15 @@ fn print_vec(mut vec: Vec<PathBuf>, file_type: String) {
             Ok(stripped) => stripped.to_str().unwrap(),
             Err(_) => path.file_name().unwrap_or_else(|| path.as_os_str()).to_str().unwrap(),
         };
-
+    
+        let metadata: fs::Metadata = metadata(path).unwrap();    
+        let styled_item = apply_style(&json, item.to_string(), metadata.permissions().readonly());
+    
         if i % num_columns == 0 && i != 0 {
             write!(output, "\n").unwrap();
         }
-
-        let formatted_item = format!("{:width$}", apply_style(&json, item.to_string()), width = max_item_length);
+    
+        let formatted_item = format!("{:width$}", styled_item, width = max_item_length);
         write!(output, "{}", formatted_item).unwrap();
     }
     writeln!(output).unwrap();
