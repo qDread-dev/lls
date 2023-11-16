@@ -4,6 +4,7 @@ use std::io::Read;
 use term_size;
 use colored::*;
 use clap::Parser;
+use json::JsonValue;
 
 #[derive(Parser, Default, Debug)]
 #[command(author, version, about, long_about=None)]
@@ -19,6 +20,39 @@ struct Args {
     unordered: bool,
 }
 
+fn apply_style(style: &JsonValue, text: &str) -> ColoredString {
+    let mut output = text.color(conv_color(style["color"].as_str().unwrap().to_string()));
+
+    if style["bold"].as_bool().unwrap_or(false) {
+        output = output.bold();
+    }
+
+    if style["underline"].as_bool().unwrap_or(false) {
+        output = output.underline();
+    }
+
+    if style["reversed"].as_bool().unwrap_or(false) {
+        output = output.reversed();
+    }
+
+    if style["italic"].as_bool().unwrap_or(false) {
+        output = output.italic();
+    }
+
+    if style["blink"].as_bool().unwrap_or(false) {
+        output = output.blink();
+    }
+
+    if style["hidden"].as_bool().unwrap_or(false) {
+        output = output.hidden();
+    }
+
+    if style["strikethrough"].as_bool().unwrap_or(false) {
+        output = output.strikethrough();
+    }
+
+    output
+}
 
 fn sort_dirs(items: ReadDir, sort: bool, all: bool) -> (Vec<String>, Vec<String>) {
     let mut dirs: Vec<String> = Vec::new();
@@ -45,22 +79,18 @@ fn sort_dirs(items: ReadDir, sort: bool, all: bool) -> (Vec<String>, Vec<String>
     return (dirs, files);
 }
 
-fn print_vec(vec: Vec<String>, color: Color, bold: bool) {
+fn print_vec(vec: Vec<String>, file_type: String) {
     let (width, _) = term_size::dimensions().unwrap();
     let width = width -1;
     let mut current_line_length = 0;
-    
+    let json: json::JsonValue = parse_config()[file_type].clone();
     for i in &vec {
         let item_length = i.len() + 2;
         if current_line_length + item_length > width {
             println!();
             current_line_length = 0;
         }
-        if bold {
-            print!("{}  ", i.color(color).bold());
-        } else {
-            print!("{}  ", i.color(color));
-        }
+        print!("{}  ", apply_style(&json, i));
         current_line_length += item_length;
     }
 }
@@ -101,12 +131,12 @@ fn parse_config() -> json::JsonValue{
 
 fn main() {
     
-    let config: json::JsonValue = parse_config();
     let args = Args::parse();
     let items: ReadDir = std::fs::read_dir(args.path).unwrap();
     let (dirs, files) = sort_dirs(items, args.unordered, args.all);
     
-    print_vec(dirs, conv_color(config["dir"]["color"].to_string()), config["dir"]["bold"].as_bool().unwrap());
+    print_vec(dirs, "dir".to_string());
     println!();
-    print_vec(files, Color::White, false);
+    print_vec(files, "file".to_string());
+    // println!(":a".color(Style::));
 }
