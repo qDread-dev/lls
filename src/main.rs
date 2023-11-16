@@ -10,6 +10,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use regex::Regex;
 use rayon::prelude::*;
+use std::fmt::Write;
 
 #[derive(Parser, Default, Debug)]
 #[command(author, version, about, long_about=None)]
@@ -30,6 +31,7 @@ struct Args {
     #[arg(long, default_value = "")]
     regex: String,
 }
+
 
 fn apply_style(style: &JsonValue, text: &str) -> ColoredString {
     let mut output = text.color(conv_color(style["color"].as_str().unwrap().to_string()));
@@ -67,13 +69,23 @@ fn apply_style(style: &JsonValue, text: &str) -> ColoredString {
 fn sort_dirs(items: ReadDir, args: Args) -> Result<(Vec<PathBuf>, Vec<PathBuf>), regex::Error> {
     let regex = Regex::new(&args.regex)?;
 
-    let paths: Vec<_> = items
+    let mut paths: Vec<_> = items
         .filter_map(Result::ok)
         .map(|entry| entry.path())
         .collect();
 
+    paths.sort_by(|a, b| {
+        let a_metadata = fs::metadata(&a).unwrap();
+        let b_metadata = fs::metadata(&b).unwrap();
+
+        let a_file_type = determine_file_type(&a, &a_metadata);
+        let b_file_type = determine_file_type(&b, &b_metadata);
+
+        a_file_type.cmp(&b_file_type)
+    });
+
     let (dirs, files): (Vec<_>, Vec<_>) = paths
-        .par_iter()
+        .iter()
         .filter(|path| {
             // Include hidden files/directories if args.all is true
             args.all || path.file_name()
@@ -91,23 +103,47 @@ fn sort_dirs(items: ReadDir, args: Args) -> Result<(Vec<PathBuf>, Vec<PathBuf>),
     Ok((dirs, files))
 }
 
-fn print_vec(vec: Vec<PathBuf>, file_type: String) {
-    let (width, _) = term_size::dimensions().unwrap();
-    let width = width -1;
-    let mut current_line_length = 0;
-    let json: json::JsonValue = parse_config()[file_type].clone();
-    for path in &vec {
-        let i = path.strip_prefix("./").unwrap().to_str().unwrap();
-        let item_length = i.len() + 2;
-        if current_line_length + item_length > width {
-            println!();
-            current_line_length = 0;
-        }
-        print!("{}  ", apply_style(&json, i));
-        current_line_length += item_length;
-    }
+fn determine_file_type(path: &PathBuf, metadata: &fs::Metadata) -> String {
+    if path.is_dir() {
+        "dir"
+    } else if metadata.permissions().readonly() {
+        "readonly"
+    } else {
+        "file"
+    }.to_string()
 }
 
+
+fn print_vec(mut vec: Vec<PathBuf>, file_type: String) {
+    let (width, _) = term_size::dimensions().unwrap();
+    let width = width - 1;
+    let config = parse_config();
+    let json = &config[file_type];
+    vec.sort();
+    let max_item_length = vec.iter()
+        .map(|path| path.file_name().unwrap_or_else(|| path.as_os_str()).to_str().unwrap().len())
+        .max()
+        .unwrap_or(0) + 2; // +2 for the spaces after each item
+
+    let num_columns = width / max_item_length;
+
+    let mut output = String::new();
+    for (i, path) in vec.iter().enumerate() {
+        let item = match path.strip_prefix("./") {
+            Ok(stripped) => stripped.to_str().unwrap(),
+            Err(_) => path.file_name().unwrap_or_else(|| path.as_os_str()).to_str().unwrap(),
+        };
+
+        if i % num_columns == 0 && i != 0 {
+            write!(output, "\n").unwrap();
+        }
+
+        let formatted_item = format!("{:width$}", apply_style(&json, item), width = max_item_length);
+        write!(output, "{}", formatted_item).unwrap();
+    }
+    writeln!(output).unwrap();
+    print!("{}", output);
+}
 fn conv_color(color: String) -> Color {
     match color.as_str() {
         "red" => Color::Red,
