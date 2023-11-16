@@ -1,0 +1,10 @@
+{
+    "dir": {
+      "color": "255,0,0",
+      "bold": true
+    },
+    "file": {
+      "color": "white",
+      "bold": false
+    }
+}

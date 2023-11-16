@@ -11,3 +11,4 @@ edition = "2021"
 colored = "2.0.4"
 clap = {version = "4.4.8", features = ["derive"]}
 term_size = "0.3.2"
+json = "0.12.4"
