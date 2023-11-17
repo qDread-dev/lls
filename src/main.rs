@@ -175,8 +175,9 @@ fn print_vec(mut vec: Vec<PathBuf>, file_type: String) {
         if i % num_columns == 0 && i != 0 {
             write!(output, "\n").unwrap();
         }
+        let x = if hidden {2} else {0};
         write!(output, "{}", styled_item).unwrap();
-        for _ in 0..(max_item_length - item.len()) {
+        for _ in 0..(max_item_length - item.len() - x) {
             write!(output, " ").unwrap();
         }
     }
