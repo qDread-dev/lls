@@ -40,7 +40,7 @@ struct PathMeta {
 }
 
 #[inline]
-fn apply_style(style: &JsonValue, text: String, readonly: bool) -> ColoredString {
+fn apply_style(style: &JsonValue, text: String, readonly: bool, hidden: bool) -> ColoredString {
     let mut output = text.color(conv_color(style["color"].as_str().unwrap().to_string()));
     if readonly {
         output = output.color(conv_color(style["readonly_color"].as_str().unwrap_or("").to_string()));
@@ -73,7 +73,13 @@ fn apply_style(style: &JsonValue, text: String, readonly: bool) -> ColoredString
     if style["strikethrough"].as_bool().unwrap_or(false) {
         output = output.strikethrough();
     }
-
+    let output_string = output.to_string();
+    let output_string = if hidden {
+        format!("[{}]", output_string)
+    } else {
+        output_string
+    };
+    let output = ColoredString::from(&*output_string);
     output
 }
 
@@ -161,9 +167,10 @@ fn print_vec(mut vec: Vec<PathBuf>, file_type: String) {
             Ok(stripped) => stripped.to_str().unwrap(),
             Err(_) => path.file_name().unwrap_or_else(|| path.as_os_str()).to_str().unwrap(),
         };
-    
+        
         let metadata: fs::Metadata = metadata(path).unwrap();    
-        let styled_item = apply_style(&json, item.to_string(), metadata.permissions().readonly());
+        let hidden = is_hidden(path).unwrap();
+        let styled_item = apply_style(&json, item.to_string(), metadata.permissions().readonly(), hidden);
     
         if i % num_columns == 0 && i != 0 {
             write!(output, "\n").unwrap();
