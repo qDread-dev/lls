@@ -75,6 +75,12 @@ fn apply_style(style: &JsonValue, text: String, readonly: bool) -> ColoredString
     output
 }
 
+fn remove_ansi_codes(input: &str) -> String {
+    let re = Regex::new("\x1B\\[[0-9;]*[a-zA-Z]").unwrap();
+    let result = re.replace_all(input, "");
+    result.to_string()
+}
+
 fn sort_dirs(items: ReadDir, args: Args) -> Result<(Vec<PathBuf>, Vec<PathBuf>), regex::Error> {
     let regex = Regex::new(&args.regex)?;
 
@@ -90,7 +96,9 @@ fn sort_dirs(items: ReadDir, args: Args) -> Result<(Vec<PathBuf>, Vec<PathBuf>),
         let a_file_type = determine_file_type(&a.path, &a.metadata);
         let b_file_type = determine_file_type(&b.path, &b.metadata);
 
-        a_file_type.cmp(&b_file_type)
+        let a_string = remove_ansi_codes(&a_file_type);
+        let b_string = remove_ansi_codes(&b_file_type);
+        a_string.cmp(&b_string)
     });
 
     let (dirs, files): (Vec<_>, Vec<_>) = paths
@@ -105,8 +113,8 @@ fn sort_dirs(items: ReadDir, args: Args) -> Result<(Vec<PathBuf>, Vec<PathBuf>),
         .partition(|path_meta| {
             path_meta.path.is_dir() && path_meta.path.to_str().map_or(false, |s| regex.is_match(s))
         });
-        let dirs: Vec<PathBuf> = dirs.into_iter().map(|path_meta| path_meta.path.clone()).collect();
-        let files: Vec<PathBuf> = files.into_iter().map(|path_meta| path_meta.path.clone()).collect();
+    let dirs: Vec<PathBuf> = dirs.into_iter().map(|path_meta| path_meta.path.clone()).collect();
+    let files: Vec<PathBuf> = files.into_iter().map(|path_meta| path_meta.path.clone()).collect();
     Ok((dirs, files))
 }
 
