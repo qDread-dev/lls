@@ -2,7 +2,6 @@
 Linux LS
 
 ## Config
-soon:tm:
 Example config:
 ```json
 {
