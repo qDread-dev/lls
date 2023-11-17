@@ -12,6 +12,7 @@ use regex::Regex;
 use rayon::prelude::*;
 use std::fmt::Write;
 use std::fs::metadata;
+use std::os::windows::prelude::*;
 
 #[derive(Parser, Default, Debug)]
 #[command(author, version, about, long_about=None)]
@@ -37,6 +38,7 @@ struct PathMeta {
     path: PathBuf,
     metadata: fs::Metadata,
 }
+
 #[inline]
 fn apply_style(style: &JsonValue, text: String, readonly: bool) -> ColoredString {
     let mut output = text.color(conv_color(style["color"].as_str().unwrap().to_string()));
@@ -75,6 +77,21 @@ fn apply_style(style: &JsonValue, text: String, readonly: bool) -> ColoredString
     output
 }
 
+fn is_hidden(path: &Path) -> std::io::Result<bool> {
+    // Check if the file starts with a dot (hidden in Unix-like systems)
+    if path.file_name()
+            .and_then(|name| name.to_str())
+            .map(|name| name.starts_with('.'))
+            .unwrap_or(false) {
+        return Ok(true);
+    }
+
+    // Check if the file is hidden in Windows
+    let metadata = fs::metadata(path)?;
+    let attributes = metadata.file_attributes();
+    Ok(attributes & 0x2 != 0)
+}
+
 fn remove_ansi_codes(input: &str) -> String {
     let re = Regex::new("\x1B\\[[0-9;]*[a-zA-Z]").unwrap();
     let result = re.replace_all(input, "");
@@ -105,10 +122,7 @@ fn sort_dirs(items: ReadDir, args: Args) -> Result<(Vec<PathBuf>, Vec<PathBuf>),
         .par_iter()
         .filter(|path_meta| {
             // Include hidden files/directories if args.all is true
-            args.all || path_meta.path.file_name()
-                .and_then(|name| name.to_str())
-                .map(|name| !name.starts_with('.'))
-                .unwrap_or(false)
+            args.all || !is_hidden(&path_meta.path).unwrap_or(false)
         })
         .partition(|path_meta| {
             path_meta.path.is_dir() && path_meta.path.to_str().map_or(false, |s| regex.is_match(s))
@@ -127,7 +141,6 @@ fn determine_file_type(path: &PathBuf, metadata: &fs::Metadata) -> String {
         "file"
     }.to_string()
 }
-
 
 fn print_vec(mut vec: Vec<PathBuf>, file_type: String) {
     let (width, _) = term_size::dimensions().unwrap();
@@ -163,6 +176,7 @@ fn print_vec(mut vec: Vec<PathBuf>, file_type: String) {
     writeln!(output).unwrap();
     print!("{}", output);
 }
+
 fn conv_color(color: String) -> Color {
     match color.as_str() {
         "red" => Color::Red,
