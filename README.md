@@ -1,5 +1,5 @@
 # LLS
-Linux LS
+Linux LS for windows
 
 ## Config
 Example config:
