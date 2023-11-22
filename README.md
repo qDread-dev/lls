@@ -5,35 +5,33 @@ Linux LS for windows
 Example config:
 ```json
 {
-    "dir": {
-        "color": "red",
-        "bold": false,
-        "style": {
-        "Clear": false,
-        "Bold": false,
-        "Dimmed": false,
-        "Underline": false,
-        "Reversed": false,
-        "Italic": false,
-        "Blink": false,
-        "Hidden": false,
-        "Strikethrough": false
-      }
-    },
-    "file": {
-        "color": "white",
-        "bold": false,
-        "style": {
-        "Clear": false,
-        "Bold": false,
-        "Dimmed": false,
-        "Underline": false,
-        "Reversed": false,
-        "Italic": false,
-        "Blink": false,
-        "Hidden": false,
-        "Strikethrough": false
-      }
-    }
+  "dir": {
+      "color": "red",
+      "readonly_color": "bright_white",
+      "readonly_background_color": "magenta",
+      "bold": false,
+      "clear": false,
+      "dimmed": false,
+      "underline": false,
+      "reversed": false,
+      "italic": false,
+      "blink": false,
+      "hidden": false,
+      "strikethrough": false
+  },
+  "file": {
+      "color": "white",
+      "readonly_color": "bright_black",
+      "readonly_background_color": "green",
+      "bold": false,
+      "clear": false,
+      "dimmed": false,
+      "underline": false,
+      "reversed": false,
+      "italic": false,
+      "blink": false,
+      "hidden": false,
+      "strikethrough": false
+  }
 }
 ```
