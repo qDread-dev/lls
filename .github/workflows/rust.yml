@@ -20,13 +20,3 @@ jobs:
       run: cargo build --verbose
     - name: Run tests
       run: cargo test --verbose
-
-    - name: Automatic Releases
-      uses: marvinpinto/action-automatic-releases@v1.2.1
-      with:
-        repo-token: "${{ secrets.GITHUB_TOKEN }}"
-        automatic_release_tag: "latest"
-        prerelease: true
-        title: "Prerelease Build"
-        files: |
-          *.exe
